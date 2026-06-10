@@ -1,22 +1,25 @@
-import json
-from file_loader import load_report
-from rag_engine import rag_search
-from query_engine import answer_query
-from risk_engine import calculate_risk
-from attack_path import analyze_attack_paths
 from fastapi import FastAPI, UploadFile, File
+import json
+
 from normalizer import normalize_report
 from database import (
     create_table,
     insert_vulnerability,
     get_all_vulnerabilities,
     search_vulnerabilities,
-      clear_all_vulnerabilities
+    clear_all_vulnerabilities
 )
+from attack_path import analyze_attack_paths
+from risk_engine import calculate_risk
+from query_engine import answer_query
+from rag_engine import rag_search
+from file_loader import load_report
+
 
 app = FastAPI()
 
 create_table()
+
 
 @app.get("/")
 def home():
@@ -25,15 +28,22 @@ def home():
         "project": "Centralized Vulnerability Detection"
     }
 
+
 @app.post("/normalize")
 def normalize(report: dict):
     result = normalize_report(report)
-    insert_vulnerability(result)
+    saved = insert_vulnerability(result)
+
+    if saved:
+        message = "Report normalized and saved successfully"
+    else:
+        message = "Duplicate report detected. Not saved again."
 
     return {
-        "message": "Report normalized and saved successfully",
+        "message": message,
         "normalized_report": result
     }
+
 
 @app.get("/vulnerabilities")
 def vulnerabilities():
@@ -44,6 +54,7 @@ def vulnerabilities():
         "data": data
     }
 
+
 @app.get("/search")
 def search(keyword: str):
     results = search_vulnerabilities(keyword)
@@ -53,6 +64,8 @@ def search(keyword: str):
         "count": len(results),
         "results": results
     }
+
+
 @app.get("/attack-paths")
 def attack_paths():
     data = get_all_vulnerabilities()
@@ -62,9 +75,10 @@ def attack_paths():
         "count": len(paths),
         "attack_paths": paths
     }
+
+
 @app.get("/risk-report")
 def risk_report():
-
     data = get_all_vulnerabilities()
 
     report = []
@@ -81,13 +95,8 @@ def risk_report():
         "count": len(report),
         "report": report
     }
-@app.delete("/clear")
-def clear_database():
-    clear_all_vulnerabilities()
 
-    return {
-        "message": "All vulnerabilities deleted successfully"
-    }
+
 @app.get("/ask")
 def ask(question: str):
     data = get_all_vulnerabilities()
@@ -97,6 +106,8 @@ def ask(question: str):
         "question": question,
         "response": response
     }
+
+
 @app.get("/rag-search")
 def rag_search_api(question: str):
     data = get_all_vulnerabilities()
@@ -106,31 +117,75 @@ def rag_search_api(question: str):
         "question": question,
         "results": results
     }
+
+
 @app.post("/load-sample-report")
 def load_sample_report():
-
     reports = load_report("reports/sample_report.json")
+
+    saved_count = 0
+    skipped_count = 0
 
     for report in reports:
         normalized = normalize_report(report)
-        insert_vulnerability(normalized)
+        saved = insert_vulnerability(normalized)
+
+        if saved:
+            saved_count += 1
+        else:
+            skipped_count += 1
 
     return {
-        "message": "Sample report loaded successfully",
-        "records_loaded": len(reports)
+        "message": "Sample report processed successfully",
+        "records_saved": saved_count,
+        "duplicates_skipped": skipped_count
     }
+
+
 @app.post("/upload-report")
 async def upload_report(file: UploadFile = File(...)):
+    if not file.filename.endswith(".json"):
+        return {
+            "error": "Only JSON files are supported"
+        }
 
     content = await file.read()
 
-    reports = json.loads(content)
+    try:
+        reports = json.loads(content)
+    except:
+        return {
+            "error": "Invalid JSON file"
+        }
+
+    if not isinstance(reports, list):
+        return {
+            "error": "JSON file must contain a list of vulnerability reports"
+        }
+
+    saved_count = 0
+    skipped_count = 0
 
     for report in reports:
         normalized = normalize_report(report)
-        insert_vulnerability(normalized)
+        saved = insert_vulnerability(normalized)
+
+        if saved:
+            saved_count += 1
+        else:
+            skipped_count += 1
 
     return {
-        "message": "Report uploaded successfully",
-        "records_loaded": len(reports)
+        "message": "Report processed successfully",
+        "records_saved": saved_count,
+        "duplicates_skipped": skipped_count
+    }
+
+
+@app.delete("/clear")
+def clear_database():
+    clear_all_vulnerabilities()
+
+    return {
+        "message": "All vulnerabilities deleted successfully"
     }
