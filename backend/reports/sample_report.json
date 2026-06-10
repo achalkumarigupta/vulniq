@@ -1,0 +1,26 @@
+[
+  {
+    "tool": "nmap",
+    "host": "192.168.1.50",
+    "port": 22,
+    "service": "ssh",
+    "vulnerability": "OpenSSH Outdated Version",
+    "severity": "HIGH"
+  },
+  {
+    "tool": "nikto",
+    "host": "192.168.1.60",
+    "port": 80,
+    "service": "http",
+    "vulnerability": "Directory Traversal",
+    "severity": "CRITICAL"
+  },
+  {
+    "tool": "nessus",
+    "host": "192.168.1.70",
+    "port": 3306,
+    "service": "mysql",
+    "vulnerability": "Weak Password",
+    "severity": "MEDIUM"
+  }
+]
