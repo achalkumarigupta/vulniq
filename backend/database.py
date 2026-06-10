@@ -15,9 +15,22 @@ def create_table():
             service TEXT,
             vulnerability_name TEXT,
             severity TEXT,
-            source_tool TEXT
+            source_tool TEXT,
+            cve TEXT,
+            cvss_score REAL
         )
     """)
+
+    # Add new columns if old database already exists
+    try:
+        cursor.execute("ALTER TABLE vulnerabilities ADD COLUMN cve TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE vulnerabilities ADD COLUMN cvss_score REAL")
+    except sqlite3.OperationalError:
+        pass
 
     conn.commit()
     conn.close()
@@ -35,13 +48,15 @@ def insert_vulnerability(vuln: dict):
         AND vulnerability_name = ?
         AND severity = ?
         AND source_tool = ?
+        AND cve = ?
     """, (
         vuln["asset"],
         vuln["port"],
         vuln["service"],
         vuln["vulnerability_name"],
         vuln["severity"],
-        vuln["source_tool"]
+        vuln["source_tool"],
+        vuln.get("cve", "N/A")
     ))
 
     existing = cursor.fetchone()
@@ -52,15 +67,17 @@ def insert_vulnerability(vuln: dict):
 
     cursor.execute("""
         INSERT INTO vulnerabilities 
-        (asset, port, service, vulnerability_name, severity, source_tool)
-        VALUES (?, ?, ?, ?, ?, ?)
+        (asset, port, service, vulnerability_name, severity, source_tool, cve, cvss_score)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         vuln["asset"],
         vuln["port"],
         vuln["service"],
         vuln["vulnerability_name"],
         vuln["severity"],
-        vuln["source_tool"]
+        vuln["source_tool"],
+        vuln.get("cve", "N/A"),
+        vuln.get("cvss_score", 0.0)
     ))
 
     conn.commit()
@@ -86,7 +103,9 @@ def get_all_vulnerabilities():
             "service": row[3],
             "vulnerability_name": row[4],
             "severity": row[5],
-            "source_tool": row[6]
+            "source_tool": row[6],
+            "cve": row[7] if len(row) > 7 else "N/A",
+            "cvss_score": row[8] if len(row) > 8 else 0.0
         })
 
     return result
@@ -102,7 +121,9 @@ def search_vulnerabilities(keyword: str):
         OR service LIKE ?
         OR vulnerability_name LIKE ?
         OR severity LIKE ?
+        OR cve LIKE ?
     """, (
+        f"%{keyword}%",
         f"%{keyword}%",
         f"%{keyword}%",
         f"%{keyword}%",
@@ -121,7 +142,9 @@ def search_vulnerabilities(keyword: str):
             "service": row[3],
             "vulnerability_name": row[4],
             "severity": row[5],
-            "source_tool": row[6]
+            "source_tool": row[6],
+            "cve": row[7] if len(row) > 7 else "N/A",
+            "cvss_score": row[8] if len(row) > 8 else 0.0
         })
 
     return result

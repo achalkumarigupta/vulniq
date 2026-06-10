@@ -5,7 +5,9 @@
     "port": 22,
     "service": "ssh",
     "vulnerability": "OpenSSH Outdated Version",
-    "severity": "HIGH"
+    "severity": "HIGH",
+    "cve": "CVE-2023-38408",
+    "cvss_score": 8.1
   },
   {
     "tool": "nikto",
@@ -13,7 +15,9 @@
     "port": 80,
     "service": "http",
     "vulnerability": "Directory Traversal",
-    "severity": "CRITICAL"
+    "severity": "CRITICAL",
+    "cve": "CVE-2021-41773",
+    "cvss_score": 9.8
   },
   {
     "tool": "nessus",
@@ -21,6 +25,8 @@
     "port": 3306,
     "service": "mysql",
     "vulnerability": "Weak Password",
-    "severity": "MEDIUM"
+    "severity": "MEDIUM",
+    "cve": "N/A",
+    "cvss_score": 5.0
   }
 ]

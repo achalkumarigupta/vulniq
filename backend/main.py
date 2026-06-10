@@ -1,3 +1,4 @@
+from nmap_parser import parse_nmap_xml
 import json
 
 from fastapi import FastAPI, UploadFile, File
@@ -199,4 +200,53 @@ def clear_database():
 
     return {
         "message": "All vulnerabilities deleted successfully"
+    }
+@app.get("/cve/{cve_id}")
+def search_by_cve(cve_id: str):
+    data = get_all_vulnerabilities()
+
+    results = []
+
+    for vuln in data:
+        if vuln.get("cve", "").lower() == cve_id.lower():
+            results.append(vuln)
+
+    return {
+        "cve": cve_id,
+        "count": len(results),
+        "results": results
+    }
+@app.post("/upload-nmap-xml")
+async def upload_nmap_xml(file: UploadFile = File(...)):
+    if not file.filename.endswith(".xml"):
+        return {
+            "error": "Only XML files are supported"
+        }
+
+    file_path = f"reports/{file.filename}"
+
+    content = await file.read()
+
+    with open(file_path, "wb") as f:
+        f.write(content)
+
+    reports = parse_nmap_xml(file_path)
+
+    saved_count = 0
+    skipped_count = 0
+
+    for report in reports:
+        normalized = normalize_report(report)
+        saved = insert_vulnerability(normalized)
+
+        if saved:
+            saved_count += 1
+        else:
+            skipped_count += 1
+
+    return {
+        "message": "Nmap XML report processed successfully",
+        "records_found": len(reports),
+        "records_saved": saved_count,
+        "duplicates_skipped": skipped_count
     }
