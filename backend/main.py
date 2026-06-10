@@ -1,5 +1,7 @@
-from fastapi import FastAPI, UploadFile, File
 import json
+
+from fastapi import FastAPI, UploadFile, File
+from fastapi.responses import FileResponse
 
 from normalizer import normalize_report
 from database import (
@@ -14,6 +16,7 @@ from risk_engine import calculate_risk
 from query_engine import answer_query
 from rag_engine import rag_search
 from file_loader import load_report
+from attack_graph import generate_attack_graph
 
 
 app = FastAPI()
@@ -75,6 +78,14 @@ def attack_paths():
         "count": len(paths),
         "attack_paths": paths
     }
+
+
+@app.get("/attack-graph")
+def attack_graph():
+    data = get_all_vulnerabilities()
+    image_path = generate_attack_graph(data)
+
+    return FileResponse(image_path, media_type="image/png")
 
 
 @app.get("/risk-report")
@@ -153,7 +164,7 @@ async def upload_report(file: UploadFile = File(...)):
 
     try:
         reports = json.loads(content)
-    except:
+    except Exception:
         return {
             "error": "Invalid JSON file"
         }
