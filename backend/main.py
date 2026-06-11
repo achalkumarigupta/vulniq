@@ -487,3 +487,29 @@ def alerts():
         "count": len(alert_list),
         "alerts": alert_list[-5:]
     }
+@app.get("/asset-ranking")
+def asset_ranking():
+
+    data = get_all_vulnerabilities()
+
+    ranking = []
+
+    for vuln in data:
+        ranking.append({
+            "asset": vuln["asset"],
+            "risk_score": vuln.get("cvss_score", 0),
+            "vulnerability": vuln["vulnerability_name"],
+            "severity": vuln["severity"],
+            "cve": vuln.get("cve", "N/A")
+        })
+
+    ranking = sorted(
+        ranking,
+        key=lambda x: x["risk_score"],
+        reverse=True
+    )
+
+    return {
+        "count": len(ranking),
+        "results": ranking[:10]
+    }

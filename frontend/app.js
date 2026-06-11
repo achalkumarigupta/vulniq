@@ -25,6 +25,7 @@ function showDashboard() {
     loadAll();
     refreshAttackGraph();
     loadAlerts();
+    loadAssetRanking(); 
 }
 
 function showLogin() {
@@ -391,6 +392,8 @@ setInterval(function () {
     if (localStorage.getItem("loggedIn") === "true") {
         getStats();
         loadTopRisks();
+        loadAssetRanking();
+        loadAlerts();
     }
 }, 10000);
 async function loadCVEFeed() {
@@ -681,6 +684,54 @@ async function loadAlerts() {
 
             <p>
                 ${alert.message}
+            </p>
+
+        </div>
+
+        `;
+    });
+}
+async function loadAssetRanking() {
+
+    const response =
+        await fetch(API_URL + "/asset-ranking");
+
+    const data =
+        await response.json();
+
+    const container =
+        document.getElementById("assetRanking");
+
+    container.innerHTML = "";
+
+    data.results.forEach((item, index) => {
+
+        container.innerHTML += `
+
+        <div class="asset-card">
+
+            <div class="asset-rank">
+                #${index + 1}
+            </div>
+
+            <p>
+                <b>Asset:</b>
+                ${item.asset}
+            </p>
+
+            <p>
+                <b>Risk Score:</b>
+                ${item.risk_score}
+            </p>
+
+            <p>
+                <b>Severity:</b>
+                ${item.severity}
+            </p>
+
+            <p>
+                <b>Vulnerability:</b>
+                ${item.vulnerability}
             </p>
 
         </div>

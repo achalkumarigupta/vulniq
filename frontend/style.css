@@ -489,3 +489,20 @@ body.dark .alert-card {
     color: #f97316;
     font-weight: bold;
 }
+.asset-card {
+    background: #f8fafc;
+    border-left: 6px solid #ef4444;
+    padding: 16px;
+    border-radius: 12px;
+    margin: 12px 0;
+}
+
+body.dark .asset-card {
+    background: #1e293b;
+}
+
+.asset-rank {
+    font-size: 20px;
+    font-weight: bold;
+    color: #ef4444;
+}
