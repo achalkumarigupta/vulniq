@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vulniq Security Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+
+<body class="dark">
+
+<div id="loginPage" class="login-page">
+    <div class="login-box">
+        <h1>Vulniq</h1>
+        <p>Centralized Vulnerability Detection</p>
+
+        <input type="text" id="regName" placeholder="Name e.g. Achal Gupta">
+        <input type="email" id="loginEmail" placeholder="Email">
+        <input type="password" id="loginPassword" placeholder="Password">
+
+        <button onclick="registerUser()">Register</button>
+        <button onclick="loginUser()">Login</button>
+
+        <small id="loginMessage"></small>
+    </div>
+</div>
+
+<div class="app" id="dashboard" style="display:none;">
+
+    <header class="hero">
+        <div>
+            <h1>Vulniq</h1>
+            <p>Centralized Vulnerability Detection & Intelligent Query Interface</p>
+        </div>
+
+        <div class="hero-actions">
+            <span class="status">Backend Connected</span>
+            <span id="userProfile" class="user-profile"></span>
+            <button id="modeToggle" class="mode-btn">Light</button>
+            <button onclick="logoutUser()" class="logout-btn">Logout</button>
+        </div>
+    </header>
+    
+
+    <div class="stats">
+        <div class="stat-card">
+            <h3>Total Vulnerabilities</h3>
+            <p id="total">0</p>
+        </div>
+
+        <div class="stat-card critical">
+            <h3>Critical Risk</h3>
+            <p id="critical">0</p>
+        </div>
+
+        <div class="stat-card high">
+            <h3>High Risk</h3>
+            <p id="high">0</p>
+        </div>
+
+        <div class="stat-card medium">
+            <h3>Medium Risk</h3>
+            <p id="medium">0</p>
+        </div>
+    </div>
+
+    <section class="panel chart-panel">
+        <h2>Risk Distribution</h2>
+        <canvas id="riskChart"></canvas>
+    </section>
+
+    <div class="main-grid">
+
+        <section class="panel">
+            <h2>JSON Report Upload</h2>
+            <p class="hint">Upload normalized vulnerability JSON report.</p>
+            <input type="file" id="jsonFile" accept=".json">
+            <button onclick="uploadJsonReport()">Upload JSON</button>
+        </section>
+
+        <section class="panel">
+            <h2>Nmap XML Upload</h2>
+            <p class="hint">Upload Nmap XML scan report.</p>
+            <input type="file" id="xmlFile" accept=".xml">
+            <button onclick="uploadNmapXml()">Upload XML</button>
+        </section>
+        <section class="panel">
+    <h2>Live Nmap Scan</h2>
+
+    <input
+        type="text"
+        id="scanTarget"
+        placeholder="192.168.1.200"
+    >
+
+    <button onclick="startScan()">
+        Start Scan
+    </button>
+</section>
+
+        <section class="panel">
+            <h2>Keyword Search</h2>
+            <p class="hint">Search asset, service, CVE, severity.</p>
+            <input type="text" id="searchKeyword" placeholder="Example: ssh or CVE-2023-0001">
+            <button onclick="keywordSearch()">Search</button>
+        </section>
+
+        <section class="panel">
+            <h2>RAG Intelligent Search</h2>
+            <p class="hint">Ask natural language security questions.</p>
+            <input type="text" id="ragQuery" placeholder="Which host has highest risk?">
+            <button onclick="ragSearch()">AI Search</button>
+        </section>
+
+    </div>
+
+    <section class="panel">
+        <h2>Action Output</h2>
+        <pre id="result">Your result will appear here...</pre>
+    </section>
+
+    <section class="panel">
+    <div class="section-head">
+        <h2>Executive Security Report</h2>
+        <button onclick="loadExecutiveReport()">Generate Report</button>
+    </div>
+    <section class="panel">
+    <div class="section-head">
+        <h2>Real-Time Alert Center</h2>
+        <button onclick="loadAlerts()">
+            Refresh Alerts
+        </button>
+    </div>
+
+    <div id="alertContainer">
+        No alerts loaded.
+    </div>
+</section>
+
+    <div id="executiveReport">
+        Report not generated yet.
+    </div>
+</section>
+<section class="panel">
+    <div class="section-head">
+        <h2>MITRE ATT&CK Mapping</h2>
+        <button onclick="loadMitreMapping()">
+            Load Mapping
+        </button>
+    </div>
+
+    <div id="mitreContainer"></div>
+</section>
+<section class="panel">
+    <div class="section-head">
+        <h2>AI Remediation Engine</h2>
+        <button onclick="loadRemediation()">
+            Generate Fixes
+        </button>
+    </div>
+
+    <div id="remediationContainer"></div>
+</section>
+<section class="panel">
+    <div class="section-head">
+        <h2>Network Topology</h2>
+        <button onclick="refreshTopology()">
+            Refresh Topology
+        </button>
+    </div>
+
+    <div class="graph-box">
+        <img
+            id="networkTopology"
+            src="http://127.0.0.1:8000/network-topology"
+        >
+    </div>
+</section>
+
+<section class="panel">
+    <div class="section-head">
+        <h2>Search History</h2>
+        <button onclick="clearHistory()">Clear History</button>
+    </div>
+
+    <div id="historyList"></div>
+</section>
+
+    <section class="panel">
+        <div class="section-head">
+            <h2>Stored Vulnerabilities</h2>
+            <div>
+                <button onclick="loadAll()">Refresh</button>
+                <button onclick="downloadJSONReport()">Download JSON</button>
+                <button onclick="downloadPDFReport()">Download PDF</button>
+            </div>
+        </div>
+
+        <div id="vulnList"></div>
+    </section>
+
+    <section class="panel">
+        <div class="section-head">
+            <h2>Attack Graph</h2>
+            <button onclick="refreshAttackGraph()">Refresh Graph</button>
+        </div>
+
+        <div class="graph-box">
+            <img id="attackGraph" src="http://127.0.0.1:8000/attack-graph">
+        </div>
+    </section>
+    <section class="panel">
+    <div class="section-head">
+        <h2>Latest CVE Feed</h2>
+        <button onclick="loadCVEFeed()">Load CVEs</button>
+    </div>
+
+    <div id="cveContainer"></div>
+</section>
+
+    <section class="panel">
+        <div class="section-head">
+            <h2>Search History</h2>
+            <button onclick="clearHistory()">Clear History</button>
+        </div>
+
+        <div id="historyList"></div>
+    </section>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

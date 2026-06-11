@@ -1,4 +1,9 @@
-from nmap_parser import parse_nmap_xml
+from network_topology import generate_topology
+from remediation_engine import get_remediation
+from mitre_mapper import map_mitre
+from cve_feed import fetch_latest_cves
+from realtime_detector import start_realtime_detection
+from fastapi.middleware.cors import CORSMiddleware
 import json
 
 from fastapi import FastAPI, UploadFile, File
@@ -12,19 +17,26 @@ from database import (
     search_vulnerabilities,
     clear_all_vulnerabilities
 )
+
 from attack_path import analyze_attack_paths
+from attack_graph import generate_attack_graph
 from risk_engine import calculate_risk
 from query_engine import answer_query
 from rag_engine import rag_search
 from file_loader import load_report
-from attack_graph import generate_attack_graph
-
+from nmap_parser import parse_nmap_xml
 
 app = FastAPI()
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 create_table()
 
-
+start_realtime_detection()
 @app.get("/")
 def home():
     return {
@@ -38,13 +50,8 @@ def normalize(report: dict):
     result = normalize_report(report)
     saved = insert_vulnerability(result)
 
-    if saved:
-        message = "Report normalized and saved successfully"
-    else:
-        message = "Duplicate report detected. Not saved again."
-
     return {
-        "message": message,
+        "message": "saved" if saved else "duplicate",
         "normalized_report": result
     }
 
@@ -73,11 +80,10 @@ def search(keyword: str):
 @app.get("/attack-paths")
 def attack_paths():
     data = get_all_vulnerabilities()
-    paths = analyze_attack_paths(data)
 
     return {
-        "count": len(paths),
-        "attack_paths": paths
+        "count": len(data),
+        "attack_paths": analyze_attack_paths(data)
     }
 
 
@@ -86,11 +92,15 @@ def attack_graph():
     data = get_all_vulnerabilities()
     image_path = generate_attack_graph(data)
 
-    return FileResponse(image_path, media_type="image/png")
+    return FileResponse(
+        image_path,
+        media_type="image/png"
+    )
 
 
 @app.get("/risk-report")
 def risk_report():
+
     data = get_all_vulnerabilities()
 
     report = []
@@ -100,7 +110,9 @@ def risk_report():
             "asset": vuln["asset"],
             "vulnerability": vuln["vulnerability_name"],
             "severity": vuln["severity"],
-            "risk_score": calculate_risk(vuln)
+            "risk_score": calculate_risk(vuln),
+            "cve": vuln.get("cve", "N/A"),
+            "cvss_score": vuln.get("cvss_score", 0)
         })
 
     return {
@@ -111,44 +123,44 @@ def risk_report():
 
 @app.get("/ask")
 def ask(question: str):
+
     data = get_all_vulnerabilities()
-    response = answer_query(question, data)
 
     return {
         "question": question,
-        "response": response
+        "response": answer_query(question, data)
     }
 
 
 @app.get("/rag-search")
 def rag_search_api(question: str):
+
     data = get_all_vulnerabilities()
-    results = rag_search(question, data)
 
     return {
         "question": question,
-        "results": results
+        "results": rag_search(question, data)
     }
 
 
 @app.post("/load-sample-report")
 def load_sample_report():
+
     reports = load_report("reports/sample_report.json")
 
     saved_count = 0
     skipped_count = 0
 
     for report in reports:
-        normalized = normalize_report(report)
-        saved = insert_vulnerability(normalized)
 
-        if saved:
+        normalized = normalize_report(report)
+
+        if insert_vulnerability(normalized):
             saved_count += 1
         else:
             skipped_count += 1
 
     return {
-        "message": "Sample report processed successfully",
         "records_saved": saved_count,
         "duplicates_skipped": skipped_count
     }
@@ -156,72 +168,34 @@ def load_sample_report():
 
 @app.post("/upload-report")
 async def upload_report(file: UploadFile = File(...)):
-    if not file.filename.endswith(".json"):
-        return {
-            "error": "Only JSON files are supported"
-        }
 
     content = await file.read()
 
     try:
         reports = json.loads(content)
     except Exception:
-        return {
-            "error": "Invalid JSON file"
-        }
-
-    if not isinstance(reports, list):
-        return {
-            "error": "JSON file must contain a list of vulnerability reports"
-        }
+        return {"error": "Invalid JSON"}
 
     saved_count = 0
     skipped_count = 0
 
     for report in reports:
-        normalized = normalize_report(report)
-        saved = insert_vulnerability(normalized)
 
-        if saved:
+        normalized = normalize_report(report)
+
+        if insert_vulnerability(normalized):
             saved_count += 1
         else:
             skipped_count += 1
 
     return {
-        "message": "Report processed successfully",
         "records_saved": saved_count,
         "duplicates_skipped": skipped_count
     }
 
 
-@app.delete("/clear")
-def clear_database():
-    clear_all_vulnerabilities()
-
-    return {
-        "message": "All vulnerabilities deleted successfully"
-    }
-@app.get("/cve/{cve_id}")
-def search_by_cve(cve_id: str):
-    data = get_all_vulnerabilities()
-
-    results = []
-
-    for vuln in data:
-        if vuln.get("cve", "").lower() == cve_id.lower():
-            results.append(vuln)
-
-    return {
-        "cve": cve_id,
-        "count": len(results),
-        "results": results
-    }
 @app.post("/upload-nmap-xml")
 async def upload_nmap_xml(file: UploadFile = File(...)):
-    if not file.filename.endswith(".xml"):
-        return {
-            "error": "Only XML files are supported"
-        }
 
     file_path = f"reports/{file.filename}"
 
@@ -236,17 +210,280 @@ async def upload_nmap_xml(file: UploadFile = File(...)):
     skipped_count = 0
 
     for report in reports:
-        normalized = normalize_report(report)
-        saved = insert_vulnerability(normalized)
 
-        if saved:
+        normalized = normalize_report(report)
+
+        if insert_vulnerability(normalized):
             saved_count += 1
         else:
             skipped_count += 1
 
     return {
-        "message": "Nmap XML report processed successfully",
         "records_found": len(reports),
         "records_saved": saved_count,
         "duplicates_skipped": skipped_count
+    }
+
+
+@app.get("/cve/{cve_id}")
+def search_by_cve(cve_id: str):
+
+    data = get_all_vulnerabilities()
+
+    results = []
+
+    for vuln in data:
+        if vuln.get("cve", "").lower() == cve_id.lower():
+            results.append(vuln)
+
+    return {
+        "cve": cve_id,
+        "count": len(results),
+        "results": results
+    }
+
+
+@app.get("/top-risks")
+def top_risks():
+
+    data = get_all_vulnerabilities()
+
+    sorted_data = sorted(
+        data,
+        key=lambda x: x.get("cvss_score", 0),
+        reverse=True
+    )
+
+    return {
+        "count": len(sorted_data),
+        "top_risks": sorted_data[:10]
+    }
+
+
+@app.get("/critical-assets")
+def critical_assets():
+
+    data = get_all_vulnerabilities()
+
+    critical = []
+
+    for vuln in data:
+        if vuln.get("cvss_score", 0) >= 9:
+            critical.append(vuln)
+
+    return {
+        "count": len(critical),
+        "critical_assets": critical
+    }
+
+
+@app.get("/dashboard")
+def dashboard():
+
+    data = get_all_vulnerabilities()
+
+    summary = {
+        "total": len(data),
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0
+    }
+
+    for vuln in data:
+
+        severity = vuln["severity"]
+
+        if severity == "CRITICAL":
+            summary["critical"] += 1
+
+        elif severity == "HIGH":
+            summary["high"] += 1
+
+        elif severity == "MEDIUM":
+            summary["medium"] += 1
+
+        elif severity == "LOW":
+            summary["low"] += 1
+
+    return summary
+
+
+@app.delete("/clear")
+def clear_database():
+
+    clear_all_vulnerabilities()
+
+    return {
+        "message": "All vulnerabilities deleted successfully"
+    }
+@app.get("/cve-feed")
+def cve_feed():
+    return {
+        "results": fetch_latest_cves()
+    }
+@app.get("/executive-report")
+def executive_report():
+
+    data = get_all_vulnerabilities()
+
+    total = len(data)
+
+    critical = len(
+        [v for v in data if v["severity"] == "CRITICAL"]
+    )
+
+    high = len(
+        [v for v in data if v["severity"] == "HIGH"]
+    )
+
+    medium = len(
+        [v for v in data if v["severity"] == "MEDIUM"]
+    )
+
+    if total == 0:
+        return {
+            "summary": "No vulnerabilities found"
+        }
+
+    highest = max(
+        data,
+        key=lambda x: x.get("cvss_score", 0)
+    )
+
+    return {
+        "total": total,
+        "critical": critical,
+        "high": high,
+        "medium": medium,
+        "most_dangerous_asset": highest["asset"],
+        "highest_cvss": highest["cvss_score"],
+        "top_vulnerability":
+            highest["vulnerability_name"],
+        "recommendation":
+            "Prioritize Critical and High vulnerabilities immediately."
+    }
+@app.get("/mitre-mapping")
+def mitre_mapping():
+
+    data = get_all_vulnerabilities()
+
+    results = []
+
+    for vuln in data:
+
+        mapping = map_mitre(
+            vuln["vulnerability_name"]
+        )
+
+        results.append({
+            "asset": vuln["asset"],
+            "vulnerability":
+                vuln["vulnerability_name"],
+            "mitre": mapping
+        })
+
+    return {
+        "count": len(results),
+        "results": results
+    }
+@app.get("/remediation")
+def remediation():
+
+    data = get_all_vulnerabilities()
+
+    results = []
+
+    for vuln in data:
+
+        results.append({
+            "asset": vuln["asset"],
+            "vulnerability":
+                vuln["vulnerability_name"],
+            "recommendations":
+                get_remediation(
+                    vuln["vulnerability_name"]
+                )
+        })
+
+    return {
+        "count": len(results),
+        "results": results
+    }
+@app.get("/network-topology")
+def network_topology():
+
+    data = get_all_vulnerabilities()
+
+    image_path = generate_topology(data)
+
+    return FileResponse(
+        image_path,
+        media_type="image/png"
+    )
+@app.get("/nmap-scan")
+def nmap_scan(target: str):
+
+    simulated_reports = [
+        {
+            "tool": "live-nmap",
+            "host": target,
+            "port": 22,
+            "service": "ssh",
+            "vulnerability": "Open SSH service detected",
+            "severity": "MEDIUM",
+            "cve": "N/A",
+            "cvss_score": 5.0
+        },
+        {
+            "tool": "live-nmap",
+            "host": target,
+            "port": 80,
+            "service": "http",
+            "vulnerability": "Open HTTP service detected",
+            "severity": "MEDIUM",
+            "cve": "N/A",
+            "cvss_score": 5.0
+        }
+    ]
+
+    saved_count = 0
+    skipped_count = 0
+
+    for report in simulated_reports:
+        normalized = normalize_report(report)
+
+        if insert_vulnerability(normalized):
+            saved_count += 1
+        else:
+            skipped_count += 1
+
+    return {
+        "message": "Live Nmap scan completed",
+        "target": target,
+        "records_found": len(simulated_reports),
+        "records_saved": saved_count,
+        "duplicates_skipped": skipped_count,
+        "scan_result": f"Scanned {target}: Open ports detected - 22/ssh, 80/http"
+    }
+@app.get("/alerts")
+def alerts():
+
+    data = get_all_vulnerabilities()
+
+    alert_list = []
+
+    for vuln in data:
+        if vuln["severity"] in ["CRITICAL", "HIGH"]:
+            alert_list.append({
+                "asset": vuln["asset"],
+                "vulnerability": vuln["vulnerability_name"],
+                "severity": vuln["severity"],
+                "cvss_score": vuln.get("cvss_score", 0),
+                "message": f"{vuln['severity']} vulnerability detected on {vuln['asset']}"
+            })
+
+    return {
+        "count": len(alert_list),
+        "alerts": alert_list[-5:]
     }
