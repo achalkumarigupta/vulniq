@@ -25,7 +25,8 @@ function showDashboard() {
     loadAll();
     refreshAttackGraph();
     loadAlerts();
-    loadAssetRanking(); 
+    loadAssetRanking();
+    loadBenchmark(); 
 }
 
 function showLogin() {
@@ -738,4 +739,62 @@ async function loadAssetRanking() {
 
         `;
     });
+}
+async function askCopilot() {
+
+    const question =
+        document.getElementById(
+            "copilotQuestion"
+        ).value;
+
+    if (!question) {
+        alert("Enter a question");
+        return;
+    }
+
+    const response =
+        await fetch(
+            API_URL +
+            "/ai-security-assistant?question=" +
+            encodeURIComponent(question)
+        );
+
+    const data =
+        await response.json();
+
+    document.getElementById(
+        "copilotAnswer"
+    ).innerText =
+        data.answer;
+}
+async function loadBenchmark() {
+
+    const response =
+        await fetch(
+            API_URL +
+            "/rag-benchmark?question=highest risk asset"
+        );
+
+    const data =
+        await response.json();
+
+    document.getElementById(
+        "embeddingTime"
+    ).innerText =
+        data.benchmark.embedding_time_ms + " ms";
+
+    document.getElementById(
+        "searchTime"
+    ).innerText =
+        data.benchmark.search_time_ms + " ms";
+
+    document.getElementById(
+        "totalTime"
+    ).innerText =
+        data.benchmark.total_time_ms + " ms";
+
+    document.getElementById(
+        "recordCount"
+    ).innerText =
+        data.benchmark.records_processed;
 }

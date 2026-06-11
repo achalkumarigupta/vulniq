@@ -22,7 +22,7 @@ from attack_path import analyze_attack_paths
 from attack_graph import generate_attack_graph
 from risk_engine import calculate_risk
 from query_engine import answer_query
-from rag_engine import rag_search
+from rag_engine import rag_search, rag_search_with_benchmark
 from file_loader import load_report
 from nmap_parser import parse_nmap_xml
 
@@ -513,3 +513,91 @@ def asset_ranking():
         "count": len(ranking),
         "results": ranking[:10]
     }
+@app.get("/rag-benchmark")
+def rag_benchmark(question: str):
+
+    data = get_all_vulnerabilities()
+
+    return rag_search_with_benchmark(
+        question,
+        data
+    )
+@app.get("/ai-security-assistant")
+def ai_security_assistant(question: str):
+
+    data = get_all_vulnerabilities()
+
+    if len(data) == 0:
+        return {
+            "question": question,
+            "answer": "No vulnerabilities found."
+        }
+
+    question_lower = question.lower()
+
+    # Highest Risk Asset
+    if "highest risk" in question_lower or "most dangerous" in question_lower:
+
+        top = max(
+            data,
+            key=lambda x: x.get("cvss_score", 0)
+        )
+
+        return {
+            "question": question,
+            "answer":
+                f"The highest risk asset is {top['asset']} "
+                f"with vulnerability '{top['vulnerability_name']}' "
+                f"(CVSS {top['cvss_score']})."
+        }
+
+    # Critical Count
+    elif "critical" in question_lower:
+
+        criticals = [
+            v for v in data
+            if v["severity"] == "CRITICAL"
+        ]
+
+        return {
+            "question": question,
+            "answer":
+                f"There are {len(criticals)} critical vulnerabilities."
+        }
+
+    # Top Vulnerability
+    elif "top vulnerability" in question_lower:
+
+        top = max(
+            data,
+            key=lambda x: x.get("cvss_score", 0)
+        )
+
+        return {
+            "question": question,
+            "answer":
+                f"The top vulnerability is "
+                f"{top['vulnerability_name']} "
+                f"with CVSS score {top['cvss_score']}."
+        }
+
+    # Remediation Summary
+    elif "remediation" in question_lower:
+
+        return {
+            "question": question,
+            "answer":
+                "Prioritize Critical and High vulnerabilities, "
+                "disable insecure services, apply vendor patches, "
+                "enforce MFA, and reduce exposed attack surfaces."
+        }
+
+    else:
+
+        return {
+            "question": question,
+            "answer":
+                "I can answer questions about highest risk assets, "
+                "critical vulnerabilities, top vulnerabilities, "
+                "and remediation recommendations."
+        }

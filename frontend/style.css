@@ -506,3 +506,19 @@ body.dark .asset-card {
     font-weight: bold;
     color: #ef4444;
 }
+#benchmarkBox {
+    margin-top: 15px;
+}
+
+#benchmarkBox p {
+    background: #f8fafc;
+    padding: 12px;
+    border-radius: 10px;
+    margin: 10px 0;
+    border-left: 5px solid #2563eb;
+    font-weight: 600;
+}
+
+body.dark #benchmarkBox p {
+    background: #1e293b;
+}

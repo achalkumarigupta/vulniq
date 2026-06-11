@@ -228,6 +228,61 @@
 
     <div id="cveContainer"></div>
 </section>
+<section class="panel">
+
+    <div class="section-head">
+        <h2>Security Copilot</h2>
+    </div>
+
+    <input
+        type="text"
+        id="copilotQuestion"
+        placeholder="Ask security questions..."
+    >
+
+    <button onclick="askCopilot()">
+        Ask AI
+    </button>
+
+    <pre id="copilotAnswer">
+AI response will appear here...
+    </pre>
+
+</section>
+<section class="panel">
+
+    <div class="section-head">
+        <h2>RAG Performance Benchmark</h2>
+        <button onclick="loadBenchmark()">
+            Run Benchmark
+        </button>
+    </div>
+
+    <div id="benchmarkBox">
+
+        <p>
+            Embedding Time:
+            <span id="embeddingTime">-</span>
+        </p>
+
+        <p>
+            Search Time:
+            <span id="searchTime">-</span>
+        </p>
+
+        <p>
+            Total Time:
+            <span id="totalTime">-</span>
+        </p>
+
+        <p>
+            Records Processed:
+            <span id="recordCount">-</span>
+        </p>
+
+    </div>
+
+</section>
 
     <section class="panel">
         <div class="section-head">
