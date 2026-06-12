@@ -1,3 +1,5 @@
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from network_topology import generate_topology
 from remediation_engine import get_remediation
 from mitre_mapper import map_mitre
