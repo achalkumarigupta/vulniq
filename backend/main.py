@@ -29,6 +29,11 @@ from file_loader import load_report
 from nmap_parser import parse_nmap_xml
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="../frontend"), name="static")
+
+@app.get("/")
+def serve_frontend():
+    return FileResponse("../frontend/index.html")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
